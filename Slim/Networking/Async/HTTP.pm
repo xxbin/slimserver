@@ -512,7 +512,7 @@ sub _http_read {
 		# if everything has already been read, _http_body_read will unsubscribe to event loop
 		# we just subscrive above ... a bit unefficient
 		if ( (!defined $self->response->headers->header('Connection') ||  $self->response->headers->header('Connection') =~ /keep-alive/i) &&
-			$self->socket->_rbuf_length == ($headers->content_length || 0) ) {
+			$self->socket->_rbuf_length > 0 ) {
 			_http_read_body( $self->socket, $self, $args )
 		}
 	}
@@ -615,6 +615,9 @@ sub _http_read_body {
 		# Some servers may never send EOF, but we want to return whatever data we've read
 		my $timeout = $self->timeout || $prefs->get('remotestreamtimeout');
 		Slim::Utils::Timers::setTimer( $socket, Time::HiRes::time() + $timeout, \&_http_read_timeout, $self, $args );
+
+		# Since $socket->read_entity_body uses an internal buffer, we must call it repeatedly until it returns <= 0 to ensure all buffered data is consumed.
+		_http_read_body( $socket, $self, $args );
 	}
 }
 
